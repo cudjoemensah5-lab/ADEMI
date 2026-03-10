@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HangOut Publications — Admin Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<style>
+:root {
+  --bg: #060d18;
+  --surface: #0d1825;
+  --card: #112234;
+  --border: #1a3048;
+  --teal: #00d4aa;
+  --orange: #f57c00;
+  --gold: #ffb300;
+  --red: #ef4444;
+  --text: #e8f0fe;
+  --muted: #6b8aaa;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* Header */
+.header{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:16px 24px;display:flex;align-items:center;gap:14px;
+  position:sticky;top:0;z-index:100;
+}
+.logo{
+  width:42px;height:42px;border-radius:13px;
+  background:linear-gradient(135deg,#00d4aa,#007a62);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Syne',sans-serif;font-weight:800;font-size:18px;color:#060d18;
+}
+.header h1{font-family:'Syne',sans-serif;font-weight:800;font-size:18px;}
+.header p{font-size:11px;color:var(--teal);margin-top:2px;}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.conn-badge{
+  padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;
+  border:1px solid var(--border);background:var(--card);color:var(--muted);
+  display:flex;align-items:center;gap:6px;
+}
+.conn-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);}
+.conn-badge.ok .conn-dot{background:var(--teal);box-shadow:0 0 6px var(--teal);}
+.conn-badge.ok{color:var(--teal);border-color:rgba(0,212,170,0.3);}
+
+/* Layout */
+.main{max-width:1100px;margin:0 auto;padding:24px 20px;display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+@media(max-width:768px){.main{grid-template-columns:1fr;}}
+
+/* Cards */
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:22px;}
+.panel-title{
+  font-family:'Syne',sans-serif;font-weight:700;font-size:13px;
+  letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);
+  margin-bottom:18px;display:flex;align-items:center;gap:8px;
+}
+.panel-title span{font-size:16px;}
+
+/* Firebase config */
+.config-panel{grid-column:1/-1;}
+.config-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+@media(max-width:600px){.config-grid{grid-template-columns:1fr;}}
+
+/* Form fields */
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:11px;font-weight:500;color:var(--muted);margin-bottom:5px;letter-spacing:0.06em;text-transform:uppercase;}
+.field input,.field select,.field textarea{
+  width:100%;background:var(--card);border:1px solid var(--border);
+  border-radius:10px;padding:10px 13px;color:var(--text);
+  font-family:'DM Sans',sans-serif;font-size:13px;outline:none;
+  transition:border-color 0.2s;
+}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:rgba(0,212,170,0.5);}
+.field textarea{resize:vertical;min-height:60px;}
+
+/* Buttons */
+.btn{
+  padding:11px 22px;border-radius:11px;font-family:'Syne',sans-serif;
+  font-weight:700;font-size:13px;border:none;cursor:pointer;
+  transition:all 0.2s;display:inline-flex;align-items:center;gap:7px;
+}
+.btn-primary{background:linear-gradient(135deg,var(--teal),#007a62);color:#060d18;}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,212,170,0.3);}
+.btn-orange{background:var(--orange);color:#fff;}
+.btn-orange:hover{opacity:0.85;}
+.btn-danger{background:rgba(239,68,68,0.15);color:var(--red);border:1px solid rgba(239,68,68,0.3);}
+.btn-danger:hover{background:rgba(239,68,68,0.25);}
+.btn-sm{padding:6px 14px;font-size:11px;border-radius:8px;}
+.btn:disabled{opacity:0.4;cursor:not-allowed;transform:none !important;}
+.btn-full{width:100%;justify-content:center;}
+
+/* Stats row */
+.stats{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+@media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr);}}
+.stat{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:16px;text-align:center;
+}
+.stat .sv{font-family:'Syne',sans-serif;font-weight:800;font-size:28px;color:var(--teal);}
+.stat .sl{font-size:11px;color:var(--muted);margin-top:4px;}
+
+/* Token list */
+.token-list{display:flex;flex-direction:column;gap:8px;max-height:420px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent;}
+.token-row{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:12px;padding:12px 14px;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+}
+.token-row.used{border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.04);}
+.token-row.active{border-color:rgba(0,212,170,0.25);background:rgba(0,212,170,0.04);}
+.token-code{
+  font-family:monospace;font-size:13px;color:var(--teal);
+  background:rgba(0,212,170,0.08);padding:3px 8px;border-radius:6px;
+  font-weight:700;letter-spacing:0.08em;
+}
+.token-info{flex:1;min-width:120px;}
+.token-info .ti-name{font-size:12px;font-weight:500;color:var(--text);}
+.token-info .ti-url{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;}
+.token-status{
+  padding:3px 10px;border-radius:8px;font-size:10px;font-weight:700;
+  font-family:'Syne',sans-serif;letter-spacing:0.06em;
+}
+.status-unused{background:rgba(0,212,170,0.12);color:var(--teal);}
+.status-active{background:rgba(255,179,0,0.12);color:var(--gold);}
+.status-used{background:rgba(239,68,68,0.12);color:var(--red);}
+.token-actions{display:flex;gap:6px;}
+
+/* Whatsapp preview */
+.wa-preview{
+  background:#075e54;border-radius:14px;padding:14px 16px;
+  font-size:12.5px;line-height:1.7;color:#fff;
+  white-space:pre-wrap;word-break:break-word;
+  font-family:'DM Sans',sans-serif;
+  border:1px solid rgba(255,255,255,0.1);
+}
+
+/* Toast */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:var(--card);border:1px solid var(--border);padding:10px 20px;
+  border-radius:12px;font-size:13px;box-shadow:0 8px 32px rgba(0,0,0,0.5);
+  transition:all 0.3s;opacity:0;pointer-events:none;z-index:999;white-space:nowrap;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* Empty state */
+.empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px;}
+.empty .ei{font-size:36px;margin-bottom:10px;}
+
+/* Modal */
+.modal-bg{
+  position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;
+  display:none;align-items:center;justify-content:center;padding:20px;
+}
+.modal-bg.show{display:flex;}
+.modal{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;padding:28px;width:100%;max-width:480px;
+}
+.modal h3{font-family:'Syne',sans-serif;font-weight:800;font-size:18px;margin-bottom:18px;}
+.modal-actions{display:flex;gap:10px;margin-top:18px;}
+
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">H</div>
+  <div>
+    <h1>HangOut Publications</h1>
+    <p>Token Admin Panel</p>
+  </div>
+  <div class="header-right">
+    <div class="conn-badge" id="connBadge">
+      <div class="conn-dot"></div>
+      <span id="connText">Not connected</span>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- Firebase Config -->
+  <div class="panel config-panel" id="configPanel">
+    <div class="panel-title"><span>🔥</span> Firebase Configuration</div>
+    <div class="config-grid">
+      <div class="field"><label>API Key</label><input type="password" id="fbApiKey" placeholder="AIzaSy..."></div>
+      <div class="field"><label>Auth Domain</label><input type="text" id="fbAuthDomain" placeholder="yourapp.firebaseapp.com"></div>
+      <div class="field"><label>Database URL</label><input type="text" id="fbDbUrl" placeholder="https://yourapp-default-rtdb.firebaseio.com"></div>
+      <div class="field"><label>Project ID</label><input type="text" id="fbProjectId" placeholder="yourapp"></div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-primary" onclick="connectFirebase()">🔥 Connect Firebase</button>
+      <button class="btn btn-orange" onclick="loadSaved()">📂 Load Saved Config</button>
+    </div>
+    <p style="font-size:11px;color:var(--muted);margin-top:10px;">Your Firebase config is saved locally on this device only.</p>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat"><div class="sv" id="statTotal">0</div><div class="sl">Total Tokens</div></div>
+    <div class="stat"><div class="sv" id="statUnused" style="color:var(--teal)">0</div><div class="sl">Unused</div></div>
+    <div class="stat"><div class="sv" id="statActive" style="color:var(--gold)">0</div><div class="sl">Active (Used Once)</div></div>
+    <div class="stat"><div class="sv" id="statRevenue" style="color:var(--orange)">0</div><div class="sl">Revenue (GH₵2.50 each)</div></div>
+  </div>
+
+  <!-- Generate Token -->
+  <div class="panel">
+    <div class="panel-title"><span>🎟️</span> Generate Token</div>
+
+    <div class="field">
+      <label>GitHub Exam URL</label>
+      <input type="url" id="examUrl" placeholder="https://yourusername.github.io/exam-page.html">
+    </div>
+    <div class="field">
+      <label>Student Name (optional)</label>
+      <input type="text" id="studentName" placeholder="e.g. Kofi Mensah">
+    </div>
+    <div class="field">
+      <label>Exam / Course Label</label>
+      <input type="text" id="examLabel" placeholder="e.g. BGEC 101 Mock Exam">
+    </div>
+    <div class="field">
+      <label>Number of Tokens to Generate</label>
+      <input type="number" id="tokenCount" value="1" min="1" max="50">
+    </div>
+
+    <button class="btn btn-primary btn-full" id="genBtn" onclick="generateTokens()" disabled>
+      🎟️ Generate Token(s)
+    </button>
+  </div>
+
+  <!-- WhatsApp Message Preview -->
+  <div class="panel">
+    <div class="panel-title"><span>📱</span> WhatsApp Message Preview</div>
+    <div class="wa-preview" id="waPreview">Generate a token to see the WhatsApp message here...</div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+      <button class="btn btn-primary btn-sm" id="copyWaBtn" onclick="copyWA()" disabled>📋 Copy Message</button>
+      <button class="btn btn-orange btn-sm" id="openWaBtn" onclick="openWhatsApp()" disabled>💬 Open WhatsApp</button>
+    </div>
+    <div class="field" style="margin-top:14px;margin-bottom:0">
+      <label>Student WhatsApp Number</label>
+      <input type="tel" id="waNumber" placeholder="+233XXXXXXXXX or 0XXXXXXXXX">
+    </div>
+  </div>
+
+  <!-- Token List -->
+  <div class="panel" style="grid-column:1/-1">
+    <div class="panel-title" style="justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:8px"><span>📋</span> All Tokens</div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="searchInput" placeholder="Search tokens..." style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:5px 10px;color:var(--text);font-size:12px;outline:none;width:160px;" oninput="renderTokens()">
+        <button class="btn btn-danger btn-sm" onclick="clearAllTokens()">🗑️ Clear All</button>
+      </div>
+    </div>
+    <div class="token-list" id="tokenList">
+      <div class="empty"><div class="ei">🎟️</div><p>No tokens yet. Connect Firebase and generate your first token.</p></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Send Modal -->
+<div class="modal-bg" id="sendModal">
+  <div class="modal">
+    <h3>📱 Send Token to Student</h3>
+    <div class="field"><label>WhatsApp Number</label><input type="tel" id="modalWaNum" placeholder="+233XXXXXXXXX"></div>
+    <div class="field"><label>Message Preview</label><textarea id="modalMsg" rows="6" style="font-size:11px;"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="sendViaModal()">💬 Open WhatsApp</button>
+      <button class="btn btn-danger" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── STATE ──
+let db = null;
+let tokens = {};
+let lastGeneratedTokens = [];
+
+// ── FIREBASE ──
+function connectFirebase() {
+  const cfg = {
+    apiKey: document.getElementById('fbApiKey').value.trim(),
+    authDomain: document.getElementById('fbAuthDomain').value.trim(),
+    databaseURL: document.getElementById('fbDbUrl').value.trim(),
+    projectId: document.getElementById('fbProjectId').value.trim(),
+  };
+  if (!cfg.databaseURL) { showToast('❌ Database URL is required'); return; }
+
+  try {
+    // Delete existing app if any
+    try { firebase.app().delete(); } catch(e) {}
+    firebase.initializeApp(cfg);
+    db = firebase.database();
+
+    db.ref('.info/connected').on('value', snap => {
+      const connected = snap.val();
+      const badge = document.getElementById('connBadge');
+      const text = document.getElementById('connText');
+      if (connected) {
+        badge.classList.add('ok');
+        text.textContent = 'Firebase Connected';
+        document.getElementById('genBtn').disabled = false;
+        loadTokens();
+      } else {
+        badge.classList.remove('ok');
+        text.textContent = 'Reconnecting...';
+      }
+    });
+
+    // Save config
+    localStorage.setItem('hpfb', JSON.stringify(cfg));
+    document.getElementById('configPanel').style.opacity = '0.6';
+    showToast('✅ Firebase connected!');
+  } catch(e) {
+    showToast('❌ Firebase error: ' + e.message);
+  }
+}
+
+function loadSaved() {
+  const saved = localStorage.getItem('hpfb');
+  if (!saved) { showToast('No saved config found'); return; }
+  const cfg = JSON.parse(saved);
+  document.getElementById('fbApiKey').value = cfg.apiKey || '';
+  document.getElementById('fbAuthDomain').value = cfg.authDomain || '';
+  document.getElementById('fbDbUrl').value = cfg.databaseURL || '';
+  document.getElementById('fbProjectId').value = cfg.projectId || '';
+  showToast('📂 Config loaded — click Connect');
+}
+
+// ── LOAD TOKENS ──
+function loadTokens() {
+  if (!db) return;
+  db.ref('tokens').on('value', snap => {
+    tokens = snap.val() || {};
+    renderTokens();
+    updateStats();
+  });
+}
+
+// ── GENERATE TOKENS ──
+async function generateTokens() {
+  if (!db) { showToast('Connect Firebase first'); return; }
+  const url = document.getElementById('examUrl').value.trim();
+  const name = document.getElementById('studentName').value.trim();
+  const label = document.getElementById('examLabel').value.trim() || 'HangOut Exam';
+  const count = parseInt(document.getElementById('tokenCount').value) || 1;
+
+  if (!url) { showToast('❌ Enter the exam URL'); return; }
+  if (!url.startsWith('http')) { showToast('❌ Enter a valid URL'); return; }
+
+  const btn = document.getElementById('genBtn');
+  btn.disabled = true; btn.textContent = '⏳ Generating...';
+
+  lastGeneratedTokens = [];
+
+  for (let i = 0; i < count; i++) {
+    const token = generateCode();
+    // The access URL points to the gateway page
+    const gatewayUrl = window.location.origin + window.location.pathname.replace('admin.html', '') + 'access.html?token=' + token;
+
+    const data = {
+      token,
+      examUrl: url,
+      examLabel: label,
+      studentName: name || 'Student',
+      gatewayUrl,
+      status: 'unused',     // unused → active → locked
+      deviceFingerprint: null,
+      createdAt: Date.now(),
+      usedAt: null,
+      price: 'GH₵2.50'
+    };
+
+    await db.ref('tokens/' + token).set(data);
+    lastGeneratedTokens.push(data);
+  }
+
+  // Show WhatsApp message for last generated
+  updateWAPreview(lastGeneratedTokens[lastGeneratedTokens.length - 1]);
+
+  btn.disabled = false; btn.innerHTML = '🎟️ Generate Token(s)';
+  showToast(`✅ ${count} token(s) generated!`);
+
+  // Clear fields
+  document.getElementById('studentName').value = '';
+  document.getElementById('tokenCount').value = '1';
+}
+
+function generateCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = 'HP-';
+  for (let i = 0; i < 8; i++) {
+    if (i === 4) code += '-';
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
+// ── WHATSAPP MESSAGE ──
+function updateWAPreview(tokenData) {
+  if (!tokenData) return;
+  const msg = buildWAMessage(tokenData);
+  document.getElementById('waPreview').textContent = msg;
+  document.getElementById('copyWaBtn').disabled = false;
+  document.getElementById('openWaBtn').disabled = false;
+}
+
+function buildWAMessage(td) {
+  return `🎓 *HangOut Publications*
+──────────────────
+Hi ${td.studentName}! Your exam access is ready.
+
+📚 *Exam:* ${td.examLabel}
+💰 *Amount Paid:* ${td.price}
+🔑 *Your Access Token:* \`${td.token}\`
+
+👉 *Click your personal link below:*
+${td.gatewayUrl}
+
+⚠️ This link is personal to you — it locks to your device the first time you open it. Do NOT share it.
+
+Good luck! 💪
+— HangOut Publications`;
+}
+
+function copyWA() {
+  if (!lastGeneratedTokens.length) return;
+  const msg = buildWAMessage(lastGeneratedTokens[lastGeneratedTokens.length - 1]);
+  navigator.clipboard.writeText(msg).then(() => showToast('✅ Message copied!'));
+}
+
+function openWhatsApp() {
+  if (!lastGeneratedTokens.length) return;
+  const num = document.getElementById('waNumber').value.trim().replace(/\s/g, '');
+  const msg = buildWAMessage(lastGeneratedTokens[lastGeneratedTokens.length - 1]);
+  const encoded = encodeURIComponent(msg);
+  const url = num ? `https://wa.me/${num.replace('+','')}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
+  window.open(url, '_blank');
+}
+
+// ── RENDER TOKENS ──
+function renderTokens() {
+  const list = document.getElementById('tokenList');
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const all = Object.values(tokens).sort((a,b) => b.createdAt - a.createdAt);
+  const filtered = search ? all.filter(t =>
+    t.token.toLowerCase().includes(search) ||
+    (t.studentName||'').toLowerCase().includes(search) ||
+    (t.examLabel||'').toLowerCase().includes(search)
+  ) : all;
+
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty"><div class="ei">🎟️</div><p>No tokens found.</p></div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(t => {
+    const statusClass = t.status === 'unused' ? 'status-unused' : t.status === 'active' ? 'status-active' : 'status-used';
+    const statusLabel = t.status === 'unused' ? 'UNUSED' : t.status === 'active' ? 'DEVICE LOCKED' : 'BLOCKED';
+    const rowClass = t.status === 'unused' ? 'active' : t.status === 'active' ? '' : 'used';
+    return `
+    <div class="token-row ${rowClass}">
+      <span class="token-code">${t.token}</span>
+      <div class="token-info">
+        <div class="ti-name">${t.studentName || 'Unknown'} — ${t.examLabel || 'Exam'}</div>
+        <div class="ti-url">${t.examUrl || ''}</div>
+      </div>
+      <span class="token-status ${statusClass}">${statusLabel}</span>
+      <div class="token-actions">
+        <button class="btn btn-primary btn-sm" onclick="openSendModal('${t.token}')">📱 Send</button>
+        <button class="btn btn-danger btn-sm" onclick="revokeToken('${t.token}')">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── STATS ──
+function updateStats() {
+  const all = Object.values(tokens);
+  const unused = all.filter(t => t.status === 'unused').length;
+  const active = all.filter(t => t.status === 'active').length;
+  document.getElementById('statTotal').textContent = all.length;
+  document.getElementById('statUnused').textContent = unused;
+  document.getElementById('statActive').textContent = active;
+  document.getElementById('statRevenue').textContent = 'GH₵' + (active * 2.5).toFixed(2);
+}
+
+// ── REVOKE ──
+async function revokeToken(token) {
+  if (!confirm(`Revoke token ${token}? This will block the student's access.`)) return;
+  await db.ref('tokens/' + token).remove();
+  showToast('🗑️ Token revoked');
+}
+
+async function clearAllTokens() {
+  if (!confirm('Delete ALL tokens? This cannot be undone.')) return;
+  await db.ref('tokens').remove();
+  showToast('🗑️ All tokens cleared');
+}
+
+// ── SEND MODAL ──
+function openSendModal(token) {
+  const t = tokens[token];
+  if (!t) return;
+  document.getElementById('modalMsg').value = buildWAMessage(t);
+  document.getElementById('modalWaNum').value = '';
+  document.getElementById('sendModal').classList.add('show');
+  lastGeneratedTokens = [t];
+}
+
+function sendViaModal() {
+  const num = document.getElementById('modalWaNum').value.trim().replace(/\s/g,'');
+  const msg = document.getElementById('modalMsg').value;
+  const encoded = encodeURIComponent(msg);
+  const url = num ? `https://wa.me/${num.replace('+','')}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
+  window.open(url, '_blank');
+  closeModal();
+}
+
+function closeModal() {
+  document.getElementById('sendModal').classList.remove('show');
+}
+
+// ── TOAST ──
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Auto-load saved config on boot
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('hpfb');
+  if (saved) {
+    const cfg = JSON.parse(saved);
+    document.getElementById('fbApiKey').value = cfg.apiKey || '';
+    document.getElementById('fbAuthDomain').value = cfg.authDomain || '';
+    document.getElementById('fbDbUrl').value = cfg.databaseURL || '';
+    document.getElementById('fbProjectId').value = cfg.projectId || '';
+  }
+});
+</script>
+</body>
+</html>
