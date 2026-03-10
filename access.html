@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HangOut Publications — Exam Access</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<style>
+:root{
+  --bg:#060d18;--surface:#0d1825;--card:#112234;--border:#1a3048;
+  --teal:#00d4aa;--orange:#f57c00;--red:#ef4444;--text:#e8f0fe;--muted:#6b8aaa;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:20px;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background:radial-gradient(ellipse at 30% 20%, rgba(0,212,170,0.07) 0%, transparent 60%);
+  pointer-events:none;
+}
+
+.container{
+  width:100%;max-width:420px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:24px;padding:36px 28px;
+  text-align:center;position:relative;z-index:1;
+  box-shadow:0 24px 80px rgba(0,0,0,0.5);
+}
+
+.logo{
+  width:64px;height:64px;border-radius:20px;
+  background:linear-gradient(135deg,#00d4aa,#007a62);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Syne',sans-serif;font-weight:800;font-size:28px;color:#060d18;
+  margin:0 auto 16px;
+  box-shadow:0 8px 30px rgba(0,212,170,0.35);
+}
+.brand{font-family:'Syne',sans-serif;font-weight:800;font-size:22px;color:var(--text);}
+.brand-sub{font-size:12px;color:var(--teal);margin-top:4px;letter-spacing:0.08em;text-transform:uppercase;}
+
+.divider{height:1px;background:var(--border);margin:24px 0;}
+
+/* States */
+.state{display:none;}
+.state.active{display:block;}
+
+/* Loading */
+.spinner{
+  width:48px;height:48px;border-radius:50%;
+  border:3px solid var(--border);border-top-color:var(--teal);
+  animation:spin 0.8s linear infinite;margin:20px auto;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{color:var(--muted);font-size:14px;margin-top:8px;}
+
+/* Token input */
+.token-box{
+  background:var(--card);border:1px solid var(--border);
+  border-radius:14px;padding:16px;margin:20px 0;
+}
+.token-box h3{font-family:'Syne',sans-serif;font-weight:700;font-size:16px;margin-bottom:6px;}
+.token-box p{font-size:12px;color:var(--muted);line-height:1.6;}
+
+.token-input{
+  width:100%;background:var(--bg);border:1px solid var(--border);
+  border-radius:10px;padding:12px 14px;color:var(--text);
+  font-family:monospace;font-size:16px;outline:none;text-align:center;
+  letter-spacing:0.1em;margin-top:14px;transition:border-color 0.2s;
+  text-transform:uppercase;
+}
+.token-input:focus{border-color:rgba(0,212,170,0.5);}
+
+.btn{
+  width:100%;padding:14px;border-radius:13px;
+  font-family:'Syne',sans-serif;font-weight:800;font-size:15px;
+  border:none;cursor:pointer;transition:all 0.2s;margin-top:14px;
+}
+.btn-teal{background:linear-gradient(135deg,var(--teal),#007a62);color:#060d18;}
+.btn-teal:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,212,170,0.3);}
+.btn-teal:disabled{opacity:0.4;cursor:not-allowed;transform:none;}
+
+/* Valid state */
+.exam-card{
+  background:rgba(0,212,170,0.08);border:1px solid rgba(0,212,170,0.3);
+  border-radius:14px;padding:18px;margin:20px 0;text-align:left;
+}
+.exam-card .ec-label{font-size:11px;color:var(--teal);text-transform:uppercase;letter-spacing:0.08em;font-weight:600;}
+.exam-card .ec-value{font-size:16px;font-weight:600;color:var(--text);margin-top:4px;}
+.exam-card .ec-sub{font-size:11px;color:var(--muted);margin-top:6px;}
+
+.lock-notice{
+  background:rgba(255,179,0,0.08);border:1px solid rgba(255,179,0,0.25);
+  border-radius:10px;padding:12px 14px;font-size:11.5px;color:#ffb300;
+  line-height:1.6;margin:14px 0;text-align:left;
+}
+
+/* Error state */
+.error-icon{font-size:48px;margin:10px 0;}
+.error-title{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;color:var(--red);margin:10px 0;}
+.error-msg{font-size:13px;color:var(--muted);line-height:1.7;}
+.error-box{
+  background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);
+  border-radius:12px;padding:14px;margin:16px 0;font-size:12px;color:var(--red);
+  line-height:1.6;
+}
+
+/* Already locked to this device */
+.returning-icon{font-size:48px;margin:10px 0;}
+
+/* Footer */
+.footer{font-size:11px;color:var(--muted);margin-top:20px;line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="logo">H</div>
+  <div class="brand">HangOut Publications</div>
+  <div class="brand-sub">Secure Exam Access</div>
+  <div class="divider"></div>
+
+  <!-- Loading -->
+  <div class="state active" id="stateLoading">
+    <div class="spinner"></div>
+    <div class="loading-text">Verifying your access token...</div>
+  </div>
+
+  <!-- Token Entry (no token in URL) -->
+  <div class="state" id="stateEnter">
+    <div class="token-box">
+      <h3>🔑 Enter Your Token</h3>
+      <p>Enter the access token you received after payment to unlock your exam.</p>
+      <input type="text" class="token-input" id="tokenInput" placeholder="HP-XXXX-XXXX" maxlength="12" oninput="formatToken(this)">
+    </div>
+    <button class="btn btn-teal" onclick="checkToken()">Unlock Exam →</button>
+    <div class="footer">Paid for access? Contact HangOut Publications on WhatsApp: <strong>+233531548864</strong></div>
+  </div>
+
+  <!-- Valid — First Time -->
+  <div class="state" id="stateValid">
+    <div style="font-size:40px;margin-bottom:8px">✅</div>
+    <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;margin-bottom:4px">Access Granted!</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:4px">Welcome, <span id="validName" style="color:var(--teal);font-weight:600"></span></div>
+
+    <div class="exam-card">
+      <div class="ec-label">Exam</div>
+      <div class="ec-value" id="validLabel"></div>
+      <div class="ec-sub" id="validToken"></div>
+    </div>
+
+    <div class="lock-notice">
+      ⚠️ <strong>Important:</strong> This link will now lock to YOUR device only. Once you click "Start Exam", no one else can use this token — not even on another device of yours.
+    </div>
+
+    <button class="btn btn-teal" id="startBtn" onclick="lockAndGo()">🚀 Start Exam →</button>
+    <div class="footer">Price paid: GH₵2.50 · One device only · No expiry</div>
+  </div>
+
+  <!-- Returning — Already locked to this device -->
+  <div class="state" id="stateReturning">
+    <div class="returning-icon">🎓</div>
+    <div style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;margin-bottom:6px">Welcome Back!</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:16px">Your exam is ready to continue.</div>
+    <div class="exam-card">
+      <div class="ec-label">Exam</div>
+      <div class="ec-value" id="returnLabel"></div>
+      <div class="ec-sub" id="returnName"></div>
+    </div>
+    <button class="btn btn-teal" onclick="goToExam()">📖 Open Exam →</button>
+    <div class="footer">Already locked to this device ✓</div>
+  </div>
+
+  <!-- Blocked — Different Device -->
+  <div class="state" id="stateBlocked">
+    <div class="error-icon">🔒</div>
+    <div class="error-title">Access Blocked</div>
+    <div class="error-msg">This token has already been used on another device.</div>
+    <div class="error-box">
+      Each token is locked to one device only. This prevents link sharing.<br><br>
+      If you believe this is an error, contact HangOut Publications.
+    </div>
+    <div class="footer">📱 WhatsApp: <strong>+233531548864</strong><br>Purchase a new token at GH₵2.50</div>
+  </div>
+
+  <!-- Invalid Token -->
+  <div class="state" id="stateInvalid">
+    <div class="error-icon">❌</div>
+    <div class="error-title">Invalid Token</div>
+    <div class="error-msg">This token does not exist or has been revoked.</div>
+    <div class="error-box">
+      Make sure you copied the full token correctly (format: HP-XXXX-XXXX).<br><br>
+      Purchase access at GH₵2.50 to get a valid token.
+    </div>
+    <button class="btn btn-teal" style="margin-top:14px" onclick="showState('stateEnter')">Try Another Token</button>
+    <div class="footer">📱 WhatsApp: <strong>+233531548864</strong></div>
+  </div>
+
+</div>
+
+<script>
+// ── FIREBASE CONFIG ──
+// Paste your Firebase config here (same as admin panel)
+const FIREBASE_CONFIG = {
+  apiKey: "PASTE_YOUR_API_KEY",
+  authDomain: "PASTE_YOUR_AUTH_DOMAIN",
+  databaseURL: "PASTE_YOUR_DATABASE_URL",
+  projectId: "PASTE_YOUR_PROJECT_ID",
+};
+
+// ── DEVICE FINGERPRINT ──
+function getFingerprint() {
+  const nav = navigator;
+  const raw = [
+    nav.userAgent,
+    nav.language,
+    screen.width + 'x' + screen.height,
+    screen.colorDepth,
+    new Date().getTimezoneOffset(),
+    nav.hardwareConcurrency || 0,
+    nav.platform || ''
+  ].join('|');
+  // Simple hash
+  let hash = 0;
+  for (let i = 0; i < raw.length; i++) {
+    hash = ((hash << 5) - hash) + raw.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36).toUpperCase();
+}
+
+let db = null;
+let currentToken = null;
+let currentTokenData = null;
+const myFingerprint = getFingerprint();
+
+// ── BOOT ──
+window.addEventListener('DOMContentLoaded', async () => {
+  // Init Firebase
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.database();
+  } catch(e) {
+    showState('stateEnter');
+    return;
+  }
+
+  // Get token from URL
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+
+  if (token) {
+    currentToken = token.toUpperCase();
+    await validateToken(currentToken);
+  } else {
+    showState('stateEnter');
+  }
+});
+
+// ── VALIDATE TOKEN ──
+async function validateToken(token) {
+  showState('stateLoading');
+  try {
+    const snap = await db.ref('tokens/' + token).get();
+    if (!snap.exists()) {
+      showState('stateInvalid');
+      return;
+    }
+    currentTokenData = snap.val();
+
+    if (currentTokenData.status === 'unused') {
+      // First time anyone is using this token — show grant screen
+      showValidScreen(currentTokenData);
+
+    } else if (currentTokenData.status === 'active') {
+      // Token has been used — check if it's this device
+      if (currentTokenData.deviceFingerprint === myFingerprint) {
+        showReturningScreen(currentTokenData);
+      } else {
+        showState('stateBlocked');
+      }
+    } else {
+      // Revoked or other status
+      showState('stateInvalid');
+    }
+  } catch(e) {
+    showState('stateInvalid');
+  }
+}
+
+// ── SHOW VALID SCREEN ──
+function showValidScreen(td) {
+  document.getElementById('validName').textContent = td.studentName || 'Student';
+  document.getElementById('validLabel').textContent = td.examLabel || 'Exam';
+  document.getElementById('validToken').textContent = 'Token: ' + td.token;
+  showState('stateValid');
+}
+
+// ── LOCK AND GO ──
+async function lockAndGo() {
+  const btn = document.getElementById('startBtn');
+  btn.disabled = true;
+  btn.textContent = '🔒 Locking to your device...';
+
+  try {
+    // Lock token to this device
+    await db.ref('tokens/' + currentToken).update({
+      status: 'active',
+      deviceFingerprint: myFingerprint,
+      usedAt: Date.now(),
+      userAgent: navigator.userAgent.substring(0, 120)
+    });
+
+    // Go to exam
+    window.location.href = currentTokenData.examUrl;
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '🚀 Start Exam →';
+    alert('Error locking token. Please try again.');
+  }
+}
+
+// ── RETURNING STUDENT ──
+function showReturningScreen(td) {
+  document.getElementById('returnLabel').textContent = td.examLabel || 'Exam';
+  document.getElementById('returnName').textContent = 'Student: ' + (td.studentName || 'Unknown');
+  currentTokenData = td;
+  showState('stateReturning');
+}
+
+function goToExam() {
+  window.location.href = currentTokenData.examUrl;
+}
+
+// ── TOKEN INPUT (manual entry) ──
+function formatToken(input) {
+  let val = input.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+  if (val.length > 2 && !val.startsWith('HP')) val = 'HP' + val.replace('HP','');
+  // Auto-format HP-XXXX-XXXX
+  let formatted = val.replace(/^HP/, 'HP-');
+  if (formatted.length > 7) formatted = formatted.substring(0,7) + '-' + formatted.substring(7);
+  input.value = formatted.substring(0, 12);
+}
+
+async function checkToken() {
+  const val = document.getElementById('tokenInput').value.trim().toUpperCase();
+  if (val.length < 10) { alert('Enter your full token (HP-XXXX-XXXX)'); return; }
+  currentToken = val;
+  await validateToken(val);
+}
+
+// ── HELPERS ──
+function showState(id) {
+  document.querySelectorAll('.state').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+</script>
+</body>
+</html>
